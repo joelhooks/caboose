@@ -16,6 +16,7 @@ import type {
   TrainInput,
 } from "./domain.js";
 import { TrainEvents, TrainInputSchema } from "./domain.js";
+import type { Plan } from "./plan.js";
 import {
   excerptOf,
   MAX_CARS,
@@ -70,6 +71,8 @@ export interface TrainContext {
 
   readonly main: string | undefined;
   readonly pool: readonly Candidate[];
+  readonly plan: Plan | undefined;
+  readonly landed: readonly string[];
   readonly cars: readonly Car[];
   readonly dropped: readonly Drop[];
   readonly build: Build | undefined;
@@ -421,9 +424,11 @@ export const trainMachine = setupEffect({
     head: undefined,
     ignoredChecks: input.ignoredChecks,
     intents: [],
+    landed: [],
     main: undefined,
     maxCars: Math.min(input.maxCars, MAX_CARS),
     merged: undefined,
+    plan: undefined,
     pollAt: undefined,
     pollMs: input.pollMs,
     pool: [],
@@ -450,6 +455,9 @@ export const trainMachine = setupEffect({
       },
     }),
     abandon: ({ context, event }) => abandon(context, event.at, event.reason),
+    plan: ({ context, event }) => ({
+      context: { ...context, landed: event.landed, plan: event.plan },
+    }),
     prOpened: ({ context, event }) => ({
       context: { ...context, pr: event.pr },
     }),
@@ -703,7 +711,13 @@ export const trainMachine = setupEffect({
           context: { ...context, main: event.main, pool: event.candidates },
         }),
         depart: ({ context, event }): TrainTransition => {
-          const cars = selectCars(context.pool, context.maxCars, context);
+          const cars = selectCars(
+            context.pool,
+            context.maxCars,
+            context,
+            context.plan,
+            new Set(context.landed)
+          );
 
           if (context.main === undefined || cars.length === 0) {
             return undefined;

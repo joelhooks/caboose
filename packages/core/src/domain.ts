@@ -1,5 +1,7 @@
 import { Schema } from "effect";
 
+import type { Plan } from "./plan.js";
+import { PlanSchema } from "./plan.js";
 import { MAX_CARS } from "./policy.js";
 
 export const Sha = Schema.NonEmptyString;
@@ -109,6 +111,15 @@ export const TrainInputSchema = Schema.Struct({
 
 export type TrainInput = typeof TrainInputSchema.Type;
 
+const knownLandedNodes = Schema.makeFilter<{
+  readonly landed: readonly string[];
+  readonly plan: Plan;
+}>(({ landed, plan }) =>
+  landed.every((id) => plan.nodes.some((node) => node.id === id))
+    ? undefined
+    : "Landed node IDs must belong to the posted plan"
+);
+
 export const TrainEvents = {
   abandon: Schema.Struct({ at: Millis, reason: Schema.String }),
   buildFailed: Schema.Struct({
@@ -142,6 +153,11 @@ export const TrainEvents = {
     reason: Schema.String,
   }),
   merged: Schema.Struct({ at: Millis, head: Sha, mergeSha: Sha }),
+  plan: Schema.Struct({
+    at: Millis,
+    landed: Schema.Array(Schema.NonEmptyString),
+    plan: PlanSchema,
+  }).check(knownLandedNodes),
   prOpened: Schema.Struct({ at: Millis, pr: PrNumber }),
   rankFailed: Schema.Struct({ at: Millis, head: Sha, reason: Schema.String }),
   ranked: Schema.Struct({
@@ -154,6 +170,7 @@ export const TrainEvents = {
 } as const;
 
 export const PostedEventSchema = Schema.Union([
+  Schema.TaggedStruct("plan", TrainEvents.plan.fields).check(knownLandedNodes),
   Schema.TaggedStruct("candidates", TrainEvents.candidates.fields),
   Schema.TaggedStruct("depart", TrainEvents.depart.fields),
   Schema.TaggedStruct("built", TrainEvents.built.fields),
@@ -181,6 +198,10 @@ export type TrainEvent = {
 }[keyof Payloads];
 
 const TrainEventSchema = Schema.Union([
+  Schema.Struct({
+    ...TrainEvents.plan.fields,
+    type: Schema.Literal("plan"),
+  }).check(knownLandedNodes),
   Schema.Struct({
     ...TrainEvents.candidates.fields,
     type: Schema.Literal("candidates"),

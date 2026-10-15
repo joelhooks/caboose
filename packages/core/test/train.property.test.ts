@@ -14,7 +14,7 @@ import { jsonSnapshot } from "./json-snapshot.js";
 import { Rules } from "./train-rules.js";
 
 const StepSchema = Schema.Struct({
-  kind: Schema.Int.check(Schema.isBetween({ maximum: 19, minimum: 0 })),
+  kind: Schema.Int.check(Schema.isBetween({ maximum: 20, minimum: 0 })),
   mask: Schema.Int.check(Schema.isBetween({ maximum: 32_767, minimum: 0 })),
   n: Schema.Int.check(Schema.isBetween({ maximum: 99, minimum: 0 })),
   stale: Schema.Boolean,
@@ -73,6 +73,30 @@ class World {
         upToDate: eligible || flaw !== 3,
       };
     });
+  }
+
+  plan(mask: number): TrainEvent {
+    return {
+      at: this.now,
+      landed: Array.from({ length: 15 }, (_, index) => index)
+        .filter((index) => Math.floor(mask / 2 ** index) % 2 === 1)
+        .map((index) => `node-${index}`),
+      plan: {
+        edges: Array.from({ length: 14 }, (_, index) => index + 1)
+          .filter((index) => index % 3 === 0)
+          .map((index) => ({
+            after: `node-${index}`,
+            before: `node-${index - 1}`,
+          })),
+        nodes: Array.from({ length: 15 }, (_, index) => ({
+          files: [`src/unit-${index % 10}.ts`],
+          id: `node-${index}`,
+          pr: 100 + index,
+          priority: (index % 3) - 1,
+        })),
+      },
+      type: "plan",
+    };
   }
 
   built(snapshot: TrainSnapshot, step: Step): TrainEvent {
@@ -313,6 +337,10 @@ class World {
           : this.progress(snapshot, step);
       }
 
+      case 20: {
+        return this.plan(step.mask);
+      }
+
       default: {
         return this.progress(snapshot, step);
       }
@@ -322,7 +350,8 @@ class World {
 
 const runLive = Effect.fn("runLive")(function* runLive(
   generated: readonly Step[],
-  maxCars: number
+  maxCars: number,
+  withPlan?: boolean
 ) {
   const actor = yield* createEffectActor(trainMachine, {
     input: input(7, maxCars),
@@ -331,6 +360,21 @@ const runLive = Effect.fn("runLive")(function* runLive(
   const world = new World();
   const rules = new Rules(maxCars);
   let token = 0;
+
+  if (withPlan === true) {
+    const before = actor.getSnapshot();
+    const event = world.plan(0);
+
+    yield* send(actor, event);
+    yield* send(actor, { token: 0, type: "sync" });
+
+    const after = yield* waitFor(
+      actor,
+      (snapshot) => snapshot.context.plan !== undefined
+    );
+
+    rules.check(before, event, after);
+  }
 
   for (const step of generated) {
     const before = actor.getSnapshot();
@@ -417,6 +461,21 @@ describe("train lifecycle rules over generated traces", () => {
     ({ at, generated, maxCars }) =>
       Effect.gen(function* scenario2() {
         const live = yield* runLive(generated, maxCars);
+        const restored = yield* runRestored(live.rules.posted, at, maxCars);
+
+        expect(comparable(yield* readTrain(restored))).toEqual(
+          comparable(yield* readTrain(live.persisted))
+        );
+      }),
+    { arbitrary: { runs: 200, size: 100 } }
+  );
+
+  it.effect.prop(
+    "a nonempty plan preserves landing safety and JSON restoration through generated traces",
+    { at: cut, generated: steps, maxCars: cap },
+    ({ at, generated, maxCars }) =>
+      Effect.gen(function* plannedRestoration() {
+        const live = yield* runLive(generated, maxCars, true);
         const restored = yield* runRestored(live.rules.posted, at, maxCars);
 
         expect(comparable(yield* readTrain(restored))).toEqual(
