@@ -1,6 +1,6 @@
 # Piper
 
-Piper leads your PRs to main in single file. The `@joelhooks/piper` package models a merge train and investigates failed pull-request checks. It keeps decisions in XState machines and runs those machines through Effect. This package computes work requests. It does not call a hosting provider, merge code, or deploy anything.
+Piper leads your PRs to main in single file. The `@joelhooks/piper` package models a merge train and investigates failed pull-request checks. It keeps decisions in XState machines and runs those machines through Effect. This package computes work requests. It does not call a hosting provider, merge code, or deploy anything. Source: [joelhooks/piper](https://github.com/joelhooks/piper).
 
 ## Run the checks
 
@@ -31,6 +31,7 @@ Both machines append intents to an outbox and facts to a ledger. An external exe
 | `packages/core/src/solo.ts` | Solo-triage lifecycle |
 | `packages/core/src/host.ts` | Scoped train creation, restoration, stepping, and inspection |
 | `packages/core/src/solo-host.ts` | Scoped solo creation, restoration, stepping, and inspection |
+| `packages/core/src/vocabulary.ts` | Display vocabulary presets, schema, and pure notification rendering |
 
 The host helpers are storage-independent. They restore with `createEffectActor(machine, { snapshot })`, deliver events, and wait for a mailbox barrier before returning a persisted snapshot. Deadlines and poll times live in context. An integration reads the next alarm time and posts a `tick`; there are no process-local timers to restore.
 
@@ -38,13 +39,13 @@ Repository settings are explicit inputs: `trainLabel`, `ignoredChecks`, and `agg
 
 ## Tests and development fence
 
-The property suites generate event traces and check the rules at each step. They cover the car cap, exact-head green plus GO, bisect progress, main movement, retry accounting, attempt retention, and owner notifications. Both suites compare an uninterrupted run with a JSON snapshot restored at an arbitrary cut. The solo suite also drops and scrambles judge calls and compares outcomes, attempt facts, and intents. Fixed-seed coverage checks verify that generated traces reach the outcomes they claim to test. All fixtures use synthetic contributors, revisions, checks, and pull-request numbers.
+The property suites generate event traces and check the rules at each step. They cover the car cap, exact-head green plus GO, bisect progress, main movement, retry accounting, attempt retention, and owner notifications. Both suites compare an uninterrupted run with a JSON snapshot restored at an arbitrary cut. The solo suite also drops and scrambles judge calls and compares outcomes, attempt facts, and intents. Both suites replay generated traces while rendering notifications with arbitrary decodable vocabularies and verify unchanged machine state, intents, and facts. Fixed-seed coverage checks verify that generated traces reach the outcomes they claim to test. All fixtures use synthetic contributors, revisions, checks, and pull-request numbers.
 
 Oxlint and Ultracite enforce the no-comments rule, anti-slop rules, XState/Effect boundaries, and Effect-native tests. The lint-exemption baseline is zero. Lefthook runs the gate before a commit. Agent hooks reject hook-bypass commands. See [AGENTS.md](AGENTS.md) for the contribution gate and [PROVENANCE.md](PROVENANCE.md) for sources and adaptations.
 
 ## Glossary
 
-The code and API keep plain domain names. The glossary gives their rat-voice equivalents.
+The code and API keep plain domain names. The glossary is the default `rat` display preset. `@joelhooks/piper/vocabulary` exports `VocabularySchema`, `rat`, `plain`, and `renderNotification`. To supply your own, decode a complete record with `Schema.decodeUnknownSync(VocabularySchema)` and pass it as the renderer's second argument. Missing keys are rejected. Vocabulary never enters the machines, events, policy, intents, or ledger.
 
 | Rat voice  | Domain term                                              |
 | ---------- | -------------------------------------------------------- |

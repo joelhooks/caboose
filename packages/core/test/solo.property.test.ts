@@ -5,8 +5,9 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import type { CheckRun, SoloEvent, SoloInput } from "../src/domain.js";
 import type { SoloSnapshot } from "../src/solo-host.js";
-import { readSolo, stepSolo } from "../src/solo-host.js";
+import { openSolo, readSolo, stepSolo } from "../src/solo-host.js";
 import { soloMachine } from "../src/solo.js";
+import { renderNotification, VocabularySchema } from "../src/vocabulary.js";
 import { JUDGE, T0 } from "./fixtures.js";
 import { jsonSnapshot } from "./json-snapshot.js";
 import { Rules } from "./solo-rules.js";
@@ -387,6 +388,34 @@ describe("solo triage rules over generated traces", () => {
         const restored = yield* replay(open, live.rules.posted, at);
 
         expect(comparable(yield* readSolo(restored))).toEqual(
+          comparable(yield* readSolo(live.persisted))
+        );
+      }),
+    { arbitrary: { runs: 200, size: 100 } }
+  );
+
+  it.effect.prop(
+    "rendering with any decodable vocabulary changes no solo outcome, intent or ledger fact",
+    {
+      generated: steps,
+      open: opening,
+      vocabulary: Arbitrary.schema(VocabularySchema),
+    },
+    ({ generated, open, vocabulary }) =>
+      Effect.gen(function* vocabularyIndependence() {
+        const live = yield* runLive(open, generated);
+        let rendered = yield* openSolo(inputOf(open));
+
+        for (const event of live.rules.posted) {
+          rendered = yield* stepSolo(rendered, [event]);
+          const snapshot = yield* readSolo(rendered);
+
+          for (const intent of snapshot.context.intents) {
+            renderNotification(intent, vocabulary);
+          }
+        }
+
+        expect(comparable(yield* readSolo(rendered))).toEqual(
           comparable(yield* readSolo(live.persisted))
         );
       }),

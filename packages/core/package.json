@@ -4,8 +4,14 @@
   "private": true,
   "description": "Piper leads your PRs to main in single file: merge-train and solo CI-triage machines.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelhooks/piper.git",
+    "directory": "packages/core"
+  },
   "type": "module",
   "exports": {
+    "./vocabulary": "./src/vocabulary.ts",
     "./domain": "./src/domain.ts",
     "./policy": "./src/policy.ts",
     "./train": "./src/machine.ts",

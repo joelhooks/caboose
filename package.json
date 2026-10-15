@@ -4,6 +4,10 @@
   "private": true,
   "description": "Piper: merge-train and solo CI-triage state machines.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelhooks/piper.git"
+  },
   "type": "module",
   "scripts": {
     "prepare": "effect-tsgo patch && if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi && mkdir -p .pi/extensions && ln -sfn ../../tools/pi/git-interceptor .pi/extensions/git-interceptor",

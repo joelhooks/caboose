@@ -5,9 +5,10 @@ import * as Arbitrary from "effect/Arbitrary";
 
 import type { Candidate, TrainEvent } from "../src/domain.js";
 import type { TrainSnapshot } from "../src/host.js";
-import { readTrain, stateName, stepTrain } from "../src/host.js";
+import { openTrain, readTrain, stateName, stepTrain } from "../src/host.js";
 import { trainMachine } from "../src/machine.js";
 import { DEFAULT_CARS, MAX_CARS } from "../src/policy.js";
+import { renderNotification, VocabularySchema } from "../src/vocabulary.js";
 import { ciOn, input, JUDGE, T0 } from "./fixtures.js";
 import { jsonSnapshot } from "./json-snapshot.js";
 import { Rules } from "./train-rules.js";
@@ -419,6 +420,34 @@ describe("train lifecycle rules over generated traces", () => {
         const restored = yield* runRestored(live.rules.posted, at, maxCars);
 
         expect(comparable(yield* readTrain(restored))).toEqual(
+          comparable(yield* readTrain(live.persisted))
+        );
+      }),
+    { arbitrary: { runs: 200, size: 100 } }
+  );
+
+  it.effect.prop(
+    "rendering with any decodable vocabulary changes no train outcome, intent or ledger fact",
+    {
+      generated: steps,
+      maxCars: cap,
+      vocabulary: Arbitrary.schema(VocabularySchema),
+    },
+    ({ generated, maxCars, vocabulary }) =>
+      Effect.gen(function* vocabularyIndependence() {
+        const live = yield* runLive(generated, maxCars);
+        let rendered = yield* openTrain(input(7, maxCars));
+
+        for (const event of live.rules.posted) {
+          rendered = yield* stepTrain(rendered, [event]);
+          const snapshot = yield* readTrain(rendered);
+
+          for (const intent of snapshot.context.intents) {
+            renderNotification(intent, vocabulary);
+          }
+        }
+
+        expect(comparable(yield* readTrain(rendered))).toEqual(
           comparable(yield* readTrain(live.persisted))
         );
       }),

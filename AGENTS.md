@@ -30,7 +30,7 @@ Node 24, pnpm 11.3.0, Effect 4.0.0, XState 6.0.0-alpha.66, `@xstate/effect` 0.1.
 
 ## Boundaries
 
-`packages/core/src/domain.ts` owns schemas and public values. `policy.ts` owns pure policy. The train and solo machines own separate lifecycles. The host helpers own scoped actor execution and the mailbox barrier. Machines append intents and facts. They do no network, filesystem, or provider I/O. Provider adapters must remain outside core.
+`packages/core/src/domain.ts` owns schemas and public values. `policy.ts` owns pure policy. The train and solo machines own separate lifecycles. The host helpers own scoped actor execution and the mailbox barrier. Machines append intents and facts. They do no network, filesystem, or provider I/O. Provider adapters must remain outside core. `vocabulary.ts` owns display words and pure notification rendering. Only renderers receive a vocabulary; machines, policy, events, intents, and ledger facts keep plain domain values.
 
 Read the installed Effect `AGENTS.md` and the pinned Effect and XState source before changing their integration. Expected errors are typed failures. Defects remain defects. Restore actors with `createEffectActor(machine, { snapshot })`. Never replace this with a pure-transition replay shortcut.
 
