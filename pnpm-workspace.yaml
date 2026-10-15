@@ -1,0 +1,11 @@
+verifyDepsBeforeRun: error
+packages:
+  - packages/*
+allowBuilds:
+  lefthook: true
+  esbuild: true
+minimumReleaseAgeExclude:
+  - effect@4.0.0
+  - "@effect/vitest@4.0.0"
+  - xstate@6.0.0-alpha.66
+  - "@xstate/effect@0.1.0-alpha.7"
