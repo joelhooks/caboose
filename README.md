@@ -58,6 +58,34 @@ At departure, `selectCars(pool, maxCars, rules, plan?, landed?)` holds nodes wit
 
 Plan updates do not change a train already building or testing. They govern selection at departure, not the exact-head checks, GO, or main-movement rules. `viewTrain` includes the current plan and landing facts. Both survive JSON snapshot restoration.
 
+## Hosting
+
+`packages/worker` (`@joelhooks/piper-worker`, private) adds a workerd-compatible HTTP host. `Train` and `Solo` Durable Objects each own one machine. `Depot` owns the directory. SQLite stores the snapshot and append-only event log in one transaction. Operator notes stay outside machine context. Requests and alarms share a per-object semaphore. Each alarm restores the actor and derives due work from context deadlines, rather than a process-local timer.
+
+| Route | Purpose |
+| --- | --- |
+| `GET /` and `GET /health` | Discovery and health |
+| `GET /state` | Current train, train summaries, and solo summaries |
+| `GET /trains` and `POST /trains` | List or open trains |
+| `GET /trains/:n` | Inspect one train |
+| `GET /trains/:n/events` and `POST /trains/:n/events` | Read or append events |
+| `GET /solos` and `POST /solos` | List or open solo triage |
+| `GET /solos/:key` | Inspect one solo, keyed as `pr-<n>@<head>` |
+| `GET /solos/:key/events` and `POST /solos/:key/events` | Read or append solo events |
+| `POST /solos/:key/operator` | Append `{ action, note?, at? }`, including after triage ends |
+
+Every write requires `Authorization: Bearer <token>`. `API_TOKEN` is a secret binding. Missing or empty bindings, missing headers, and incorrect tokens return 401 before state access. WebCrypto HMAC verification compares token values without a JavaScript string comparison. Durable Objects repeat the auth check at their own boundary. Reads are open unless `REQUIRE_READ_AUTH` is `"true"`; that switch protects discovery and health too.
+
+Train opening accepts `{ train?, maxCars?, pollMs?, ciTimeoutMs? }`. Solo opening accepts `{ pr, head, owner, base, checks, at?, pollMs?, ciTimeoutMs? }`. Event posts accept one tagged event or an array. Missing timestamps default to receipt time. All write bodies pass through Effect schemas before mutation. Candidate posts also open solo triage for failed checks with a recorded base.
+
+Bindings default to `REPO="repository"`, `TRAIN_LABEL="train"`, empty comma-separated `IGNORED_CHECKS` and `AGGREGATE_CHECKS`, and the core's `DEFAULT_CARS` for `MAX_CARS` (8). Polling defaults to 90 seconds and CI timeout to one hour. The Worker only records machine intents. An external executor still owns provider calls and idempotent delivery.
+
+```sh
+pnpm worker:plan
+```
+
+`packages/worker/alchemy.run.ts` declares the Worker, its three Durable Object bindings, and `Config.Redacted("API_TOKEN")`. The command bundles the Worker for a browser runtime and compiles the Alchemy declaration offline using a synthetic token. It prints resource and binding names only. This dry run is not a provider diff or deployment. No account or domain is configured. Deployment requires a separately approved provider profile, a real secret, and review of the provider plan. Keep the SQLite namespaces and storage when rolling back Worker code.
+
 ## Tests and development fence
 
 The property suites generate event traces and check the rules at each step. They cover the car cap, exact-head green plus GO, bisect progress, main movement, retry accounting, attempt retention, and owner notifications. Both suites compare an uninterrupted run with a JSON snapshot restored at an arbitrary cut. The solo suite also drops and scrambles judge calls and compares outcomes, attempt facts, and intents. Both suites replay generated traces while rendering notifications with arbitrary decodable vocabularies and verify unchanged machine state, intents, and facts. Fixed-seed coverage checks verify that generated traces reach the outcomes they claim to test. All fixtures use synthetic contributors, revisions, checks, and pull-request numbers.

@@ -4,6 +4,11 @@ packages:
 allowBuilds:
   lefthook: true
   esbuild: true
+  workerd: true
+overrides:
+  "@effect/platform-node-shared": 4.0.0
+  "@effect/sql-d1": 4.0.0
+  "@effect/sql-sqlite-do": 4.0.0
 minimumReleaseAgeExclude:
   - effect@4.0.0
   - "@effect/vitest@4.0.0"
