@@ -1,5 +1,10 @@
 # Piper
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/piper-map-dark.svg">
+  <img alt="Piper drawn as a chewed Tube map: the Run line from Queue through Checks to the Nest, with Gnaw, Sniff, Trail and the Hoard loop" src="docs/piper-map-light.svg">
+</picture>
+
 Piper leads your PRs to main in single file. The `@joelhooks/piper` package models a merge train and investigates failed pull-request checks. It keeps decisions in XState machines and runs those machines through Effect. This package computes work requests. It does not call a hosting provider, merge code, or deploy anything. Source: [joelhooks/piper](https://github.com/joelhooks/piper).
 
 ## Run the checks
