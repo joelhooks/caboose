@@ -1,6 +1,8 @@
 import { Data, Predicate } from "effect";
 
 import type { Candidate, Car, CheckRun, Rank } from "./domain.js";
+import type { Plan } from "./plan.js";
+import { conflictPairs, readyNodes } from "./plan.js";
 
 export const MAX_CARS = 12;
 
@@ -109,18 +111,60 @@ export const isEligible = (candidate: Candidate, rules: RepoRules): boolean =>
 export const selectCars = (
   pool: readonly Candidate[],
   maxCars: number,
-  rules: RepoRules
+  rules: RepoRules,
+  plan?: Plan,
+  landed: ReadonlySet<string> = new Set()
 ): readonly Car[] => {
   const seen = new Set<number>();
   const cars: Car[] = [];
 
-  for (const candidate of pool) {
+  const nodes = new Map(
+    plan?.nodes.flatMap((node) =>
+      node.pr === undefined ? [] : [[node.pr, node] as const]
+    )
+  );
+
+  const ready = new Set(
+    plan === undefined ? [] : readyNodes(plan, landed).map((node) => node.id)
+  );
+
+  const conflicts = plan === undefined ? [] : conflictPairs(plan);
+  const boarded = new Set<string>();
+
+  const ordered =
+    plan === undefined || plan.nodes.length === 0
+      ? pool
+      : pool.toSorted(
+          (left, right) =>
+            (nodes.get(left.number)?.priority ?? 0) -
+            (nodes.get(right.number)?.priority ?? 0)
+        );
+
+  for (const candidate of ordered) {
     if (cars.length >= Math.min(maxCars, MAX_CARS)) {
       break;
     }
 
+    const node = nodes.get(candidate.number);
+
+    if (
+      node !== undefined &&
+      (!ready.has(node.id) ||
+        landed.has(node.id) ||
+        conflicts.some(
+          ([left, right]) => left === node.id && boarded.has(right)
+        ))
+    ) {
+      continue;
+    }
+
     if (!seen.has(candidate.number) && isEligible(candidate, rules)) {
       seen.add(candidate.number);
+
+      if (node !== undefined) {
+        boarded.add(node.id);
+      }
+
       cars.push({
         headSha: candidate.headSha,
         number: candidate.number,

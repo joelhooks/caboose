@@ -50,6 +50,7 @@ export class Rules {
     );
     this.outbox(before, event, after);
     this.capacity(before, event, after);
+    Rules.planSelection(before, event, after);
     this.timeoutRetry(before, event, after);
     this.mergeSafety(before, event, after);
     this.landingSafety(before, event, after);
@@ -77,6 +78,42 @@ export class Rules {
         expect(intent.cars.length).toBeGreaterThan(0);
         expect(intent.cars.length).toBeLessThanOrEqual(this.cap);
         this.widest = Math.max(this.widest, intent.cars.length);
+      }
+    }
+  }
+
+  static planSelection(
+    before: TrainSnapshot,
+    event: TrainEvent,
+    after: TrainSnapshot
+  ) {
+    const { plan, landed } = before.context;
+
+    if (
+      event.type !== "depart" ||
+      stateName(before) !== "collecting" ||
+      plan === undefined
+    ) {
+      return;
+    }
+
+    const selected = plan.nodes.filter((node) =>
+      after.context.cars.some((car) => car.number === node.pr)
+    );
+
+    for (const node of selected) {
+      expect(landed).not.toContain(node.id);
+
+      for (const edge of plan.edges.filter(
+        (dependency) => dependency.after === node.id
+      )) {
+        expect(landed).toContain(edge.before);
+      }
+
+      for (const other of selected.filter((peer) => peer.id !== node.id)) {
+        expect(
+          (node.files ?? []).some((file) => (other.files ?? []).includes(file))
+        ).toBe(false);
       }
     }
   }

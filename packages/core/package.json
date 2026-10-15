@@ -14,6 +14,7 @@
     "./vocabulary": "./src/vocabulary.ts",
     "./domain": "./src/domain.ts",
     "./policy": "./src/policy.ts",
+    "./plan": "./src/plan.ts",
     "./train": "./src/machine.ts",
     "./solo": "./src/solo.ts",
     "./host": "./src/host.ts",

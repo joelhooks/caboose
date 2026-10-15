@@ -42,6 +42,22 @@ The host helpers are storage-independent. They restore with `createEffectActor(m
 
 Repository settings are explicit inputs: `trainLabel`, `ignoredChecks`, and `aggregateChecks`. The synthetic examples use `train`, `branch-current`, and `checks`. These names carry no provider-specific policy.
 
+## Plan graph
+
+`@joelhooks/piper/plan` exports `PlanSchema`, `decodePlan`, `readyNodes`, `conflictPairs`, and `waves`. Nodes have a unique `id`, optional unique `pr`, optional `files`, and optional integer `priority`. Lower priorities board first. Edges use `{ before, after }` node IDs.
+
+`decodePlan` returns an Effect `Result` with typed structural or graph errors. Graph errors distinguish duplicate IDs, ambiguous PR assignments, unknown references, and cycles. `PlanSchema` also rejects invalid graphs when nested in another schema.
+
+`readyNodes(plan, landed)` reads a set of landed node IDs and returns nodes whose direct prerequisites have landed, including already-landed nodes. `waves(plan)` returns dependency layers in input order. Layers do not separate file conflicts. `conflictPairs(plan)` returns both directions of every pair sharing an exact file string. Files are not normalized and missing file lists imply no known conflicts.
+
+The graph is pure data, not another lifecycle. This module does not query a provider or infer landing from a missing candidate.
+
+Post `{ _tag: "plan", at, plan, landed }` through `PostedEventSchema`. `landed` is a complete list of node IDs confirmed on main by the caller. The event replaces both the plan and those landing facts. Unknown landed IDs are rejected. Repost the plan with updated facts when a prerequisite lands. Nodes without PRs can represent external prerequisites, but they still need explicit landing facts.
+
+At departure, `selectCars(pool, maxCars, rules, plan?, landed?)` holds nodes with unlanded prerequisites, skips already-landed nodes, and separates shared-file conflicts. The first conflicting candidate in priority order boards; the other remains in the pool for a later train. Lower integer priorities board first, with operator order breaking ties. Missing priorities and candidates outside the plan use priority zero. Candidates outside the plan retain the existing eligibility rules and operator order relative to each other. No plan, or an empty plan, produces exactly the original selection.
+
+Plan updates do not change a train already building or testing. They govern selection at departure, not the exact-head checks, GO, or main-movement rules. `viewTrain` includes the current plan and landing facts. Both survive JSON snapshot restoration.
+
 ## Tests and development fence
 
 The property suites generate event traces and check the rules at each step. They cover the car cap, exact-head green plus GO, bisect progress, main movement, retry accounting, attempt retention, and owner notifications. Both suites compare an uninterrupted run with a JSON snapshot restored at an arbitrary cut. The solo suite also drops and scrambles judge calls and compares outcomes, attempt facts, and intents. Both suites replay generated traces while rendering notifications with arbitrary decodable vocabularies and verify unchanged machine state, intents, and facts. Fixed-seed coverage checks verify that generated traces reach the outcomes they claim to test. All fixtures use synthetic contributors, revisions, checks, and pull-request numbers.
