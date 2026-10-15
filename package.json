@@ -1,0 +1,41 @@
+{
+  "name": "piper-workspace",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Piper: merge-train and solo CI-triage state machines.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/joelhooks/piper.git"
+  },
+  "type": "module",
+  "scripts": {
+    "prepare": "effect-tsgo patch && if git rev-parse --git-dir >/dev/null 2>&1; then lefthook install; fi && mkdir -p .pi/extensions && ln -sfn ../../tools/pi/git-interceptor .pi/extensions/git-interceptor",
+    "check": "pnpm typecheck && pnpm lint && pnpm test",
+    "typecheck": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p packages/core/test/tsconfig.json",
+    "lint": "ultracite check && node scripts/lint-exemption-ratchet.mjs && oxfmt --check .",
+    "fix": "ultracite fix && oxfmt .",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "0.51.1",
+    "@effect/vitest": "4.0.0",
+    "@oxlint/plugins": "1.83.0",
+    "@types/node": "24.13.6",
+    "@xstate/effect": "0.1.0-alpha.7",
+    "effect": "4.0.0",
+    "lefthook": "2.1.14",
+    "oxfmt": "0.68.0",
+    "oxlint": "1.83.0",
+    "oxlint-tsgolint": "7.0.2002",
+    "typescript": "7.0.2",
+    "ultracite": "7.12.0",
+    "vitest": "5.0.3",
+    "xstate": "6.0.0-alpha.66"
+  },
+  "engines": {
+    "node": ">=24.18.0 <25",
+    "pnpm": "11.3.0"
+  },
+  "packageManager": "pnpm@11.3.0"
+}
